@@ -306,25 +306,75 @@ abstract class HistoryActionsTests[T] extends HistoryTestsBase[T, TestKey4, Byte
 
   "insert 6 things and getLeaves" should "return all of the leaves" in
     withTestTrieStore { (store, branch) =>
-      val expected: Vector[Leaf[TestKey4, ByteVector]] = Vector(
-        Leaf(key1, val1),
-        Leaf(key2, val2),
-        Leaf(key3, val3),
-        Leaf(key4, val4),
-        Leaf(key5, val5),
-        Leaf(key6, val6)
-      )
+      // val expected: Vector[Leaf[TestKey4, ByteVector]] = Vector(
+      //   Leaf(key1, val1),
+      //   Leaf(key2, val2),
+      //   Leaf(key3, val3),
+      //   Leaf(key4, val4),
+      //   Leaf(key5, val5),
+      //   Leaf(key6, val6)
+      // )
+      val expectedIndexedSeq: IndexedSeq[Leaf[TestKey4, ByteVector]] =
+        for (i <- 0 until tuples.length)
+          yield Leaf(tuples(i)._1, tuples(i)._2)
 
-      insert(store, branch, key1, val1)
-      insert(store, branch, key2, val2)
-      insert(store, branch, key3, val3)
-      insert(store, branch, key4, val4)
-      insert(store, branch, key5, val5)
-      insert(store, branch, key6, val6)
+      val expected = expectedIndexedSeq.toVector
 
+      // insert(store, branch, key1, val1)
+      // insert(store, branch, key2, val2)
+      // insert(store, branch, key3, val3)
+      // insert(store, branch, key4, val4)
+      // insert(store, branch, key5, val5)
+      // insert(store, branch, key6, val6)
+
+      for (i <- 0 until tuples.length) insert(store, branch, tuples(i)._1, tuples(i)._2)
+
+      val t0     = System.nanoTime()
       val leaves = getRoot(store, branch).map(getLeaves(store, _))
+      val t1     = System.nanoTime()
+      // Uncomment these lines to print all 100 values 
+      // println(s"These are the values for getLeaves: " + leaves.value.foreach(println))
+      println(s"Elapsed time for getLeaves:" + (t1 - t0))
 
       leaves.value should contain theSameElementsAs expected
+    }
+
+  "insert many things and getLeaves2" should "return all of the leaves" in
+    withTestTrieStore { (store, branch) =>
+      // val expected: Vector[Leaf[TestKey4, ByteVector]] = Vector(
+      //   Leaf(key1, val1),
+      //   Leaf(key2, val2),
+      //   Leaf(key3, val3),
+      //   Leaf(key4, val4),
+      //   Leaf(key5, val5),
+      //   Leaf(key6, val6)
+      // )
+
+      val expectedIndexedSeq: IndexedSeq[Leaf[TestKey4, ByteVector]] =
+        for (i <- 0 until tuples.length)
+          yield Leaf(tuples(i)._1, tuples(i)._2)
+
+      val expected = expectedIndexedSeq.toVector
+
+      // insert(store, branch, key1, val1)
+      // insert(store, branch, key2, val2)
+      // insert(store, branch, key3, val3)
+      // insert(store, branch, key4, val4)
+      // insert(store, branch, key5, val5)
+      // insert(store, branch, key6, val6)
+
+      for (i <- 0 until tuples.length) insert(store, branch, tuples(i)._1, tuples(i)._2)
+
+      val t0      = System.nanoTime()
+      val leaves2 = getRoot(store, branch).map(getLeaves2(store, _)).value.value.get.get.toVector
+      val t1      = System.nanoTime()
+      println(s"Elapsed time for getLeaves2:" + (t1 - t0))
+      // Uncomment these lines to print all 100 values  
+      // println(
+      //   s"These are the values for getLeaves2: " + leaves2
+      //     .foreach(println))
+
+      leaves2 should contain theSameElementsAs expected
     }
 }
 

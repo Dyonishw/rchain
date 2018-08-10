@@ -9,6 +9,10 @@ import org.scalatest.{FlatSpec, Matchers, OptionValues, Outcome}
 import scodec.Codec
 import scodec.bits.ByteVector
 
+import monix.execution.Scheduler.Implicits.global
+import monix.execution.CancelableFuture
+import monix.eval.Task
+
 trait HistoryTestsBase[T, K, V]
     extends FlatSpec
     with Matchers
@@ -31,7 +35,19 @@ trait HistoryTestsBase[T, K, V]
   def getLeaves(store: ITrieStore[T, K, V], hash: Blake2b256Hash): Seq[Leaf[K, V]] =
     store.withTxn(store.createTxnRead())(txn => store.getLeaves(txn, hash))
 
+  def getLeaves2(store: ITrieStore[T, K, V],
+                 hash: Blake2b256Hash): CancelableFuture[Seq[Leaf[K, V]]] =
+    store.withTxn(store.createTxnRead())(txn => store.getLeaves2(txn, hash))
+
   object TestData {
+
+    val manyKeys = (0 until 100).toList.map(keyInt =>
+      TestKey4.create(Seq(keyInt, keyInt + 1, keyInt + 2, keyInt + 3)))
+
+    val manyVals = (0 until 100).toList.map(valInt => ByteVector(("value" + s"${valInt}").getBytes))
+
+    val tuples = manyKeys.zip(manyVals)
+
     val key1 = TestKey4.create(Seq(1, 0, 0, 0))
     val val1 = ByteVector("value1".getBytes)
     val key2 = TestKey4.create(Seq(1, 0, 0, 1))

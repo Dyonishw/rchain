@@ -8,6 +8,10 @@ import coop.rchain.rspace.Blake2b256Hash
 import scala.annotation.tailrec
 import scala.collection.immutable.Seq
 
+import monix.execution.Scheduler.Implicits.global
+import monix.execution.CancelableFuture
+import monix.eval.Task
+
 trait ITrieStore[T, K, V] {
 
   private[rspace] def createTxnRead(): T
@@ -59,6 +63,40 @@ trait ITrieStore[T, K, V] {
     get(txn, hash) match {
       case Some(currentRoot) =>
         loop(txn, Seq(currentRoot), Seq.empty[Leaf[K, V]])
+      case None =>
+        throw new LookupException(s"could not get node at $hash ")
+    }
+  }
+
+  private[rspace] def getLeaves2(txn: T,
+                                 hash: Blake2b256Hash): CancelableFuture[Seq[Leaf[K, V]]] = {
+    // @tailrec
+    def loop(txn: T, ts: Seq[Trie[K, V]], ls: Seq[Leaf[K, V]]): Task[Seq[Leaf[K, V]]] =
+      ts match {
+        case Seq() =>
+          Task.now(ls)
+        case tries =>
+          val (next, acc) = tries.foldLeft((Seq.empty[Trie[K, V]], ls)) {
+            case ((nexts, leaves), Skip(_, pointer)) =>
+              val next = get(txn, pointer.hash)
+              (nexts ++ next.toSeq, leaves)
+            case ((nexts, leaves), Node(pointerBlock)) =>
+              val children =
+                pointerBlock.children
+                  .map { _.hash }
+                  .traverse[Option, Trie[K, V]](hash => get(txn, hash))
+                  .getOrElse(throw new LookupException("something went wrong"))
+              (nexts ++ children, leaves)
+            case ((nexts, leaves), leaf: Leaf[K, V]) =>
+              (nexts, leaves :+ leaf)
+          }
+          Task.defer(loop(txn, next, acc))
+      }
+
+    get(txn, hash) match {
+      case Some(currentRoot) =>
+        loop(txn, Seq(currentRoot), Seq.empty[Leaf[K, V]]).runAsync
+
       case None =>
         throw new LookupException(s"could not get node at $hash ")
     }
